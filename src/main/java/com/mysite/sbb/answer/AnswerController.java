@@ -1,5 +1,6 @@
 package com.mysite.sbb.answer;
 
+import com.mysite.sbb.CommonUtil;
 import com.mysite.sbb.question.Question;
 import com.mysite.sbb.question.QuestionService;
 import com.mysite.sbb.user.SiteUser;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RequestMapping("/answer")
 @RequiredArgsConstructor
@@ -26,6 +29,7 @@ public class AnswerController {
     private final QuestionService questionService;
     private final AnswerService answerService;
     private final UserService userService;
+    private final CommonUtil commonUtil;
 
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/create/{id}")
@@ -34,13 +38,22 @@ public class AnswerController {
         Question question = this.questionService.getQuestion(id);
         SiteUser siteUser = this.userService.getUser(principal.getName());
         if (bindingResult.hasErrors()) {
-            model.addAttribute("question", question);
+            addQuestionDetailAttributes(model, question);
             return "question_detail";
         }
         Answer answer = this.answerService.create(question, answerForm.getContent(), siteUser);
         // 답변 등록 후 앵커로 스크롤을 이동시키기 위해 #answer_%s 추가
         return String.format("redirect:/question/detail/%s#answer_%s",
                 answer.getQuestion().getId(), answer.getId());
+    }
+    // 컨트롤러에서 마크다운을 HTML로 변환해서 모델에 담아 넘기는 방식
+    private void addQuestionDetailAttributes(Model model, Question question) {
+        Map<Integer, String> answerContentMap = question.getAnswerList().stream()
+                .collect(Collectors.toMap(Answer::getId, answer -> this.commonUtil.markdown(answer.getContent())));
+
+        model.addAttribute("question", question);
+        model.addAttribute("questionContent", this.commonUtil.markdown(question.getContent()));
+        model.addAttribute("answerContentMap", answerContentMap);
     }
 
     @PreAuthorize("isAuthenticated()")

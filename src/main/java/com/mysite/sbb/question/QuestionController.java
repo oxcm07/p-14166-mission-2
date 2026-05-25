@@ -1,5 +1,7 @@
 package com.mysite.sbb.question;
 
+import com.mysite.sbb.CommonUtil;
+import com.mysite.sbb.answer.Answer;
 import com.mysite.sbb.answer.AnswerForm;
 import com.mysite.sbb.user.SiteUser;
 import com.mysite.sbb.user.UserService;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.security.Principal;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RequestMapping("/question")
 @RequiredArgsConstructor
@@ -22,6 +26,7 @@ import java.security.Principal;
 public class QuestionController {
     private final QuestionService questionService;
     private final UserService userService;
+    private final CommonUtil commonUtil;
 
     @GetMapping("/list")
     public String list(Model model, @RequestParam(value = "page", defaultValue = "0") int page) {
@@ -33,8 +38,17 @@ public class QuestionController {
     @GetMapping(value = "/detail/{id}")
     public String detail(Model model, @PathVariable("id") Integer id, AnswerForm answerForm) {
         Question question = this.questionService.getQuestion(id);
-        model.addAttribute("question", question);
+        addQuestionDetailAttributes(model, question);
         return "question_detail";
+    }
+
+    private void addQuestionDetailAttributes(Model model, Question question) {
+        Map<Integer, String> answerContentMap = question.getAnswerList().stream()
+                .collect(Collectors.toMap(Answer::getId, answer -> this.commonUtil.markdown(answer.getContent())));
+
+        model.addAttribute("question", question);
+        model.addAttribute("questionContent", this.commonUtil.markdown(question.getContent()));
+        model.addAttribute("answerContentMap", answerContentMap);
     }
 
     @PreAuthorize("isAuthenticated()") //로그인 필요
